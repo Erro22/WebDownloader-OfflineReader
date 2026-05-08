@@ -344,7 +344,8 @@ class MainActivity : AppCompatActivity() {
                 queueBatchDownload(selectedLinks)
             },
             onPreview = { link ->
-                webView.evaluateJavascript("highlightElement('${link.url}')", null)
+                val escapedUrl = link.url.replace("'", "\\'")
+                webView.evaluateJavascript("highlightElement('$escapedUrl')", null)
             }
         )
         bottomSheet.show(supportFragmentManager, "LinksInspector")
