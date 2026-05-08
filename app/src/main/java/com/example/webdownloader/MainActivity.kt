@@ -104,10 +104,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupWebView() {
-        webView.settings.javaScriptEnabled = true
-        webView.settings.domStorageEnabled = true
-        webView.settings.allowFileAccess = true
-        webView.settings.allowContentAccess = true
+        webView.settings.apply {
+            javaScriptEnabled = true
+            domStorageEnabled = true
+            allowFileAccess = true
+            allowContentAccess = true
+            allowFileAccessFromFileURLs = true
+            allowUniversalAccessFromFileURLs = true
+            javaScriptCanOpenWindowsAutomatically = true
+        }
         webView.isNestedScrollingEnabled = true
         
         webView.addJavascriptInterface(object {
@@ -333,6 +338,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun extractLinks() {
+        Toast.makeText(this, "Анализ страницы...", Toast.LENGTH_SHORT).show()
         val script = assets.open("links_inspector.js").bufferedReader().use { it.readText() }
         webView.evaluateJavascript(script, null)
     }
