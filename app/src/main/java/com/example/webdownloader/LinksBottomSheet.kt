@@ -14,6 +14,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.progressindicator.LinearProgressIndicator
+import com.google.android.material.tabs.TabLayout
 import org.json.JSONArray
 
 class LinksBottomSheet : BottomSheetDialogFragment() {
@@ -45,7 +46,9 @@ class LinksBottomSheet : BottomSheetDialogFragment() {
                 x = obj.getInt("x"),
                 y = obj.getInt("y"),
                 width = obj.getInt("width"),
-                height = obj.getInt("height")
+                height = obj.getInt("height"),
+                category = obj.optString("category", "EXTERNAL"),
+                estimatedWeight = obj.optLong("estimatedWeight", 0)
             ))
         }
     }
@@ -60,6 +63,8 @@ class LinksBottomSheet : BottomSheetDialogFragment() {
         val rvLinks: RecyclerView = view.findViewById(R.id.rvLinks)
         val tvCount: TextView = view.findViewById(R.id.tvSelectedCount)
         val cbSelectAll: CheckBox = view.findViewById(R.id.cbSelectAll)
+        val btnInvert: MaterialButton = view.findViewById(R.id.btnInvertSelection)
+        val tabCategories: TabLayout = view.findViewById(R.id.tabCategories)
         val etSearch: EditText = view.findViewById(R.id.etSearchLinks)
         val btnDownload: MaterialButton = view.findViewById(R.id.btnBatchDownload)
 
@@ -76,19 +81,30 @@ class LinksBottomSheet : BottomSheetDialogFragment() {
         adapter.submitList(links)
 
         cbSelectAll.setOnCheckedChangeListener { _, isChecked ->
-            links.forEach { it.isSelected = isChecked }
+            val currentList = adapter.currentList
+            currentList.forEach { it.isSelected = isChecked }
             adapter.notifyDataSetChanged()
-            val selectedCount = if (isChecked) links.size else 0
-            tvCount.text = "Выбрано: $selectedCount"
+            updateCounter(tvCount)
         }
+
+        btnInvert.setOnClickListener {
+            val currentList = adapter.currentList
+            currentList.forEach { it.isSelected = !it.isSelected }
+            adapter.notifyDataSetChanged()
+            updateCounter(tvCount)
+        }
+
+        tabCategories.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
+            override fun onTabSelected(tab: TabLayout.Tab?) {
+                filterLinks(etSearch.text.toString(), tab?.position ?: 0)
+            }
+            override fun onTabUnselected(tab: TabLayout.Tab?) {}
+            override fun onTabReselected(tab: TabLayout.Tab?) {}
+        })
 
         etSearch.addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) {
-                val query = s.toString().lowercase()
-                val filtered = links.filter { 
-                    it.title.lowercase().contains(query) || it.url.lowercase().contains(query) 
-                }
-                adapter.submitList(filtered)
+                filterLinks(s.toString(), tabCategories.selectedTabPosition)
             }
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
@@ -101,6 +117,27 @@ class LinksBottomSheet : BottomSheetDialogFragment() {
                 dismiss()
             }
         }
+    }
+
+    private fun filterLinks(query: String, tabPosition: Int) {
+        val q = query.lowercase()
+        val category = when(tabPosition) {
+            1 -> "INTERNAL"
+            2 -> "EXTERNAL"
+            3 -> "MEDIA"
+            else -> null
+        }
+        
+        val filtered = links.filter {
+            (category == null || it.category == category) &&
+            (it.title.lowercase().contains(q) || it.url.lowercase().contains(q))
+        }
+        adapter.submitList(filtered)
+    }
+
+    private fun updateCounter(tvCount: TextView) {
+        val selectedCount = links.count { it.isSelected }
+        tvCount.text = "Выбрано: $selectedCount"
     }
 
     fun setListeners(onDownload: (List<LinkItem>) -> Unit, onPreview: (LinkItem) -> Unit) {

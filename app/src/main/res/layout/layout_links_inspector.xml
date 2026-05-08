@@ -17,30 +17,72 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Инспектор ссылок"
+        android:text="Инспектор ссылок v2.0"
         android:textAppearance="?attr/textAppearanceHeadlineSmall"
         android:textStyle="bold" />
 
-    <RelativeLayout
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp">
+        android:layout_marginTop="16dp"
+        android:orientation="horizontal">
 
         <CheckBox
             android:id="@+id/cbSelectAll"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Выбрать все" />
+            android:text="Все" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnInvertSelection"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Инвертировать"
+            android:textSize="12sp" />
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
 
         <TextView
             android:id="@+id/tvSelectedCount"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_alignParentEnd="true"
-            android:layout_centerVertical="true"
+            android:layout_gravity="center_vertical"
             android:text="Выбрано: 0"
             android:textAppearance="?attr/textAppearanceBodyMedium" />
-    </RelativeLayout>
+    </LinearLayout>
+
+    <com.google.android.material.tabs.TabLayout
+        android:id="@+id/tabCategories"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        app:tabMode="scrollable"
+        app:tabIndicatorAnimationMode="elastic">
+
+        <com.google.android.material.tabs.TabItem
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Все" />
+
+        <com.google.android.material.tabs.TabItem
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Свои" />
+
+        <com.google.android.material.tabs.TabItem
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Чужие" />
+
+        <com.google.android.material.tabs.TabItem
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Медиа" />
+    </com.google.android.material.tabs.TabLayout>
 
     <EditText
         android:id="@+id/etSearchLinks"
@@ -48,7 +90,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:background="@drawable/bg_search_bar"
-        android:hint="Поиск по ссылкам..."
+        android:hint="Поиск по ссылке или заголовку..."
         android:padding="12dp"
         android:textSize="14sp" />
 

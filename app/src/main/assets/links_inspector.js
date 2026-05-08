@@ -1,22 +1,35 @@
 (function() {
+    const currentHost = window.location.hostname;
+    
     const links = Array.from(document.querySelectorAll('a')).map(a => {
         const rect = a.getBoundingClientRect();
+        const url = a.href;
+        let category = "EXTERNAL";
+        
+        try {
+            const urlObj = new URL(url);
+            if (urlObj.hostname === currentHost) {
+                category = "INTERNAL";
+            } else if (url.match(/\.(pdf|zip|mp4|mp3|exe|apk)$/i)) {
+                category = "MEDIA";
+            }
+        } catch(e) {}
+
         return {
             title: a.innerText.trim() || a.getAttribute('title') || 'Без названия',
-            url: a.href,
+            url: url,
             x: Math.round(rect.left + window.scrollX),
             y: Math.round(rect.top + window.scrollY),
             width: Math.round(rect.width),
-            height: Math.round(rect.height)
+            height: Math.round(rect.height),
+            category: category,
+            estimatedWeight: document.body.innerText.length // Very rough estimate
         };
     }).filter(link => {
-        // Filter out junk
         if (!link.url || link.url.startsWith('javascript:') || link.url.startsWith('#')) return false;
-        if (link.title.length < 2 && !link.url.includes(window.location.hostname)) return false;
         return true;
     });
 
-    // Send back to Android
     if (window.AndroidInterface && window.AndroidInterface.onLinksExtracted) {
         window.AndroidInterface.onLinksExtracted(JSON.stringify(links));
     }
@@ -28,18 +41,32 @@ function highlightElement(x, y) {
     if (el) {
         el.scrollIntoView({behavior: "smooth", block: "center"});
         
-        // Add highlight effect
-        const originalOutline = el.style.outline;
-        const originalTransition = el.style.transition;
-        
-        el.style.transition = 'outline 0.3s ease';
-        el.style.outline = '5px solid #6750A4';
+        // Neon Red Highlight
+        const styleId = 'antigravity-highlight-style';
+        if (!document.getElementById(styleId)) {
+            const style = document.createElement('style');
+            style.id = styleId;
+            style.innerHTML = `
+                @keyframes neon-pulse {
+                    0% { box-shadow: 0 0 5px #ff0000, 0 0 10px #ff0000; }
+                    50% { box-shadow: 0 0 20px #ff0000, 0 0 30px #ff0000; }
+                    100% { box-shadow: 0 0 5px #ff0000, 0 0 10px #ff0000; }
+                }
+                .neon-highlight {
+                    outline: 3px solid #ff0000 !important;
+                    animation: neon-pulse 1s infinite !important;
+                    background-color: rgba(255, 0, 0, 0.1) !important;
+                    transition: all 0.3s ease !important;
+                    z-index: 9999 !important;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        el.classList.add('neon-highlight');
         
         setTimeout(() => {
-            el.style.outline = originalOutline;
-            setTimeout(() => {
-                el.style.transition = originalTransition;
-            }, 300);
-        }, 2000);
+            el.classList.remove('neon-highlight');
+        }, 3000);
     }
 }

@@ -32,7 +32,14 @@ class LinksAdapter(
 
         fun bind(item: LinkItem) {
             title.text = item.title
-            domain.text = item.domain
+            domain.text = "${item.domain} • ${item.category}"
+            
+            // Highlight already saved items
+            if (item.downloadStatus == "COMPLETED") {
+                domain.setTextColor(android.graphics.Color.parseColor("#4CAF50")) // Material Green
+            } else {
+                domain.setTextColor(android.graphics.Color.GRAY)
+            }
             
             checkBox.setOnCheckedChangeListener(null)
             checkBox.isChecked = item.isSelected

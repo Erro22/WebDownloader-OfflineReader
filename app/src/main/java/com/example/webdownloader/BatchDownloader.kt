@@ -9,6 +9,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.BatteryManager
 import java.io.File
 import java.util.*
 
@@ -20,6 +23,7 @@ class BatchDownloader(private val context: Context) {
     
     private var isProcessing = false
     private var hiddenWebView: WebView? = null
+    private val MAX_BATCH_SIZE = 50
 
     fun startBatch() {
         if (isProcessing) return
@@ -32,7 +36,7 @@ class BatchDownloader(private val context: Context) {
                 db.pageDao().getAllPages().find { it.status == "QUEUED" }
             }
 
-            if (nextItem == null) {
+            if (nextItem == null || !isSystemReady()) {
                 isProcessing = false
                 hiddenWebView?.destroy()
                 hiddenWebView = null
@@ -98,5 +102,21 @@ class BatchDownloader(private val context: Context) {
         scope.launch(Dispatchers.IO) {
             db.pageDao().updatePage(page.copy(status = status))
         }
+    }
+
+    private fun isSystemReady(): Boolean {
+        val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+        val batteryStatus = context.registerReceiver(null, filter)
+        val level = batteryStatus?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+        val scale = batteryStatus?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+        val batteryPct = level * 100 / scale.toFloat()
+
+        if (batteryPct < 15) return false
+        
+        // Temperature check (simplified)
+        val temp = batteryStatus?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1) ?: -1
+        if (temp > 450) return false // 45°C
+        
+        return true
     }
 }

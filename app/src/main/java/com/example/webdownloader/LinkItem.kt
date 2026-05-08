@@ -7,7 +7,10 @@ data class LinkItem(
     val y: Int,
     val width: Int,
     val height: Int,
-    var isSelected: Boolean = false
+    var isSelected: Boolean = false,
+    val category: String = "EXTERNAL",
+    val estimatedWeight: Long = 0,
+    var downloadStatus: String? = null // PENDING, DOWNLOADING, COMPLETED, FAILED
 ) {
     val domain: String
         get() = try {

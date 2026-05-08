@@ -23,8 +23,11 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.navigation.NavigationView
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.*
@@ -128,6 +131,26 @@ class MainActivity : AppCompatActivity() {
                     emptyPreviewState.visibility = View.GONE
                     fabSave.visibility = View.VISIBLE
                 }
+            }
+
+            override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
+                val url = request?.url?.toString() ?: return null
+                
+                // Only intercept actual page loads (not assets for now to avoid complexity)
+                if (request.isForMainFrame) {
+                    val localPage = runBlocking { db.pageDao().getPageByUrl(url) }
+                    if (localPage != null && localPage.filePath.isNotEmpty()) {
+                        val file = File(localPage.filePath)
+                        if (file.exists()) {
+                            return WebResourceResponse(
+                                "text/html",
+                                "UTF-8",
+                                file.inputStream()
+                            )
+                        }
+                    }
+                }
+                return super.shouldInterceptRequest(view, request)
             }
         }
     }
@@ -328,8 +351,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun queueBatchDownload(selectedLinks: List<LinkItem>) {
+        val currentUrl = webView.url ?: ""
         lifecycleScope.launch(Dispatchers.IO) {
-            selectedLinks.forEach { link ->
+            // Find or create a parent entry for grouping if needed
+            val parent = db.pageDao().getPageByUrl(currentUrl)
+            val parentId = parent?.id
+
+            selectedLinks.take(50).forEach { link ->
                 val existing = db.pageDao().getPageByUrl(link.url)
                 if (existing == null) {
                     val page = Page(
@@ -337,6 +365,9 @@ class MainActivity : AppCompatActivity() {
                         url = link.url,
                         filePath = "",
                         status = "QUEUED",
+                        parentId = parentId,
+                        category = link.category,
+                        estimatedWeight = link.estimatedWeight,
                         faviconUrl = "https://www.google.com/s2/favicons?domain=${link.domain}&sz=128"
                     )
                     db.pageDao().insertPage(page)
