@@ -49,6 +49,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var searchArchive: EditText
     private lateinit var fabSave: FloatingActionButton
     private lateinit var btnDownload: ImageButton
+    private lateinit var fabBackToInspector: View
 
     private lateinit var db: AppDatabase
     private lateinit var adapter: PagesAdapter
@@ -56,6 +57,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var batchDownloader: BatchDownloader
 
     private var currentMode = Mode.DOWNLOADER
+    private var lastExtractedLinksJson: String? = null
 
     enum class Mode { DOWNLOADER, LIBRARY, READING }
 
@@ -84,6 +86,7 @@ class MainActivity : AppCompatActivity() {
         searchArchive = findViewById(R.id.searchArchive)
         fabSave = findViewById(R.id.fabSave)
         btnDownload = findViewById(R.id.btnDownload)
+        fabBackToInspector = findViewById(R.id.fabBackToInspector)
 
         setSupportActionBar(toolbar)
     }
@@ -208,6 +211,13 @@ class MainActivity : AppCompatActivity() {
         fabSave.setOnLongClickListener {
             extractLinks()
             true
+        }
+
+        fabBackToInspector.setOnClickListener {
+            lastExtractedLinksJson?.let { json ->
+                showLinksInspector(json)
+                fabBackToInspector.visibility = View.GONE
+            }
         }
 
         searchArchive.addTextChangedListener(object : TextWatcher {
@@ -335,6 +345,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showLinksInspector(json: String) {
+        lastExtractedLinksJson = json
         val bottomSheet = LinksBottomSheet.newInstance(json)
         bottomSheet.setListeners(
             onDownload = { selectedLinks ->
@@ -343,6 +354,8 @@ class MainActivity : AppCompatActivity() {
             onPreview = { link ->
                 val escapedUrl = link.url.replace("'", "\\'")
                 webView.evaluateJavascript("highlightElement('$escapedUrl')", null)
+                bottomSheet.dismiss()
+                fabBackToInspector.visibility = View.VISIBLE
             }
         )
         bottomSheet.show(supportFragmentManager, "LinksInspector")

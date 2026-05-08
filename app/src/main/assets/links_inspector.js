@@ -8,13 +8,12 @@
         let url = rawUrl;
         let title = a.innerText.trim() || a.getAttribute('title') || 'Без названия';
         
-        // Decode URL and Title for readability (e.g. Cyrillic)
         try {
             url = decodeURIComponent(rawUrl);
             title = decodeURIComponent(title);
         } catch(e) {}
 
-        let category = "PROCHEЕ"; // Default: Other
+        let category = "PROCHEЕ";
         
         try {
             const urlObj = new URL(rawUrl);
@@ -33,7 +32,7 @@
 
         return {
             title: title,
-            url: rawUrl, // Keep raw URL for actual downloading
+            url: rawUrl,
             displayUrl: url,
             x: Math.round(rect.left + window.scrollX),
             y: Math.round(rect.top + window.scrollY),
@@ -42,17 +41,12 @@
             category: category
         };
     }).filter(link => {
-        // Validation
         if (!link.url || link.url.startsWith('javascript:') || link.url.startsWith('#')) return false;
-        
-        // Blacklist check
         const isBlacklisted = blacklist.some(word => link.url.toLowerCase().includes(word.toLowerCase()));
         if (isBlacklisted) return false;
-        
         return true;
     });
 
-    console.log("Antigravity: Extracted " + links.length + " clean links");
     if (window.AndroidInterface && window.AndroidInterface.onLinksExtracted) {
         window.AndroidInterface.onLinksExtracted(JSON.stringify(links));
     }
@@ -60,42 +54,73 @@
 })();
 
 function highlightElement(targetUrl) {
-    console.log("Antigravity: Highlighting URL: " + targetUrl);
+    console.log("Antigravity: Highlighting with Red Marker: " + targetUrl);
+    
+    // Safely escape URL for CSS selector
+    const selector = 'a[href="' + targetUrl.replace(/"/g, '\\"') + '"]';
     const allLinks = Array.from(document.querySelectorAll('a'));
     const candidates = allLinks.filter(a => a.href === targetUrl);
     
-    if (candidates.length === 0) return;
+    if (candidates.length === 0) {
+        console.error("Antigravity: Link not found: " + targetUrl);
+        return;
+    }
 
     let el = candidates.find(a => {
         const rect = a.getBoundingClientRect();
         return rect.width > 0 && rect.height > 0;
     }) || candidates[0];
 
-    el.scrollIntoView({behavior: "smooth", block: "center"});
+    // --- STICKY HEADER COMPENSATION ---
+    const rect = el.getBoundingClientRect();
+    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+    const targetY = rect.top + scrollTop - (window.innerHeight / 2) + (rect.height / 2);
     
-    const styleId = 'antigravity-highlight-style';
+    // Scroll to center but with a safety offset for sticky headers
+    window.scrollTo({
+        top: targetY,
+        behavior: 'smooth'
+    });
+    
+    // Additional micro-scroll if target is too high (under potential header)
+    setTimeout(() => {
+        const newRect = el.getBoundingClientRect();
+        if (newRect.top < 100) { // If it's in the top 100px, it might be under a header
+            window.scrollBy({ top: -120, behavior: 'smooth' });
+        }
+    }, 500);
+
+    // --- RED MARKER STYLE ---
+    const styleId = 'antigravity-red-marker-style';
     if (!document.getElementById(styleId)) {
         const style = document.createElement('style');
         style.id = styleId;
         style.innerHTML = `
-            @keyframes neon-pulse-v3 {
-                0% { box-shadow: 0 0 10px #00ffcc, 0 0 20px #00ffcc; border: 2px solid #00ffcc; }
-                50% { box-shadow: 0 0 30px #00ffcc, 0 0 50px #00ffcc; border: 2px solid #00ffcc; }
-                100% { box-shadow: 0 0 10px #00ffcc, 0 0 20px #00ffcc; border: 2px solid #00ffcc; }
+            @keyframes red-pulse-v3 {
+                0% { box-shadow: 0 0 10px rgba(255, 0, 0, 0.5); }
+                50% { box-shadow: 0 0 25px rgba(255, 0, 0, 0.8), 0 0 40px rgba(255, 0, 0, 0.4); }
+                100% { box-shadow: 0 0 10px rgba(255, 0, 0, 0.5); }
             }
-            .neon-highlight-v3 {
-                outline: 6px solid #00ffcc !important;
-                outline-offset: 4px !important;
-                animation: neon-pulse-v3 0.6s infinite !important;
-                background-color: rgba(0, 255, 204, 0.2) !important;
+            .antigravity-red-marker {
+                background-color: rgba(255, 0, 0, 0.6) !important;
+                box-shadow: 0 0 15px 5px rgba(255, 0, 0, 0.4) !important;
+                border-radius: 6px !important;
+                transition: all 0.3s ease !important;
+                animation: red-pulse-v3 1s infinite !important;
                 z-index: 2147483647 !important;
                 position: relative !important;
-                border-radius: 8px !important;
+                color: white !important;
+                padding: 2px 4px !important;
+                margin: -2px -4px !important;
             }
         `;
         document.head.appendChild(style);
     }
 
-    el.classList.add('neon-highlight-v3');
-    setTimeout(() => el.classList.remove('neon-highlight-v3'), 3000);
+    el.classList.add('antigravity-red-marker');
+    
+    // Remove after 10 seconds
+    setTimeout(() => {
+        el.classList.remove('antigravity-red-marker');
+    }, 10000);
 }
