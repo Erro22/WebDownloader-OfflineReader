@@ -1,8 +1,15 @@
 <resources>
     <style name="Theme.WebDownloader" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Primary brand color. -->
+        <!-- Primary brand color (Modern Deep Purple) -->
         <item name="colorPrimary">#6750A4</item>
         <item name="colorOnPrimary">#FFFFFF</item>
-        <item name="colorContainer">#F3EDF7</item>
+        
+        <!-- Secondary brand color (Vibrant Red-Orange for highlighters) -->
+        <item name="colorSecondary">#E53935</item>
+        <item name="colorOnSecondary">#FFFFFF</item>
+        
+        <!-- Surface and Background -->
+        <item name="android:statusBarColor">?attr/colorPrimary</item>
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 </resources>
