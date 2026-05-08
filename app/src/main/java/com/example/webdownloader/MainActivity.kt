@@ -256,7 +256,7 @@ class MainActivity : AppCompatActivity() {
 
         btnOpenEditor.setOnClickListener {
             if (lastExtractedLinksJson != null) {
-                showLinksBottomSheet(lastExtractedLinksJson!!)
+                showLinksInspector(lastExtractedLinksJson!!)
             } else {
                 if (webView.url != null) {
                     extractLinks()
@@ -536,7 +536,7 @@ class MainActivity : AppCompatActivity() {
             isInspectorActive = false
             webView.reload()
             fabBackToInspector.visibility = View.GONE
-            btnDownload.clearColorFilter()
+            btnInspector.clearColorFilter()
         } else if (webView.canGoBack() && currentMode == Mode.DOWNLOADER) {
             webView.goBack()
         } else if (currentMode != Mode.DOWNLOADER) {
