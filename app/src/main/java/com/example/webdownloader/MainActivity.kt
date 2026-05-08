@@ -51,7 +51,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var rvSavedPages: RecyclerView
     private lateinit var searchArchive: EditText
     private lateinit var fabSave: FloatingActionButton
-    private lateinit var btnDownload: ImageButton
+    private lateinit var btnSaveCurrent: ImageButton
+    private lateinit var btnOpenEditor: ImageButton
     private lateinit var btnInspector: ImageButton
     private lateinit var fabBackToInspector: View
     private lateinit var highlightOverlay: View
@@ -95,7 +96,8 @@ class MainActivity : AppCompatActivity() {
         rvSavedPages = findViewById(R.id.rvSavedPages)
         searchArchive = findViewById(R.id.searchArchive)
         fabSave = findViewById(R.id.fabSave)
-        btnDownload = findViewById(R.id.btnDownload)
+        btnSaveCurrent = findViewById(R.id.btnSaveCurrent)
+        btnOpenEditor = findViewById(R.id.btnOpenEditor)
         btnInspector = findViewById(R.id.btnInspector)
         fabBackToInspector = findViewById(R.id.fabBackToInspector)
         highlightOverlay = findViewById(R.id.highlightOverlay)
@@ -248,8 +250,20 @@ class MainActivity : AppCompatActivity() {
             } else false
         }
 
-        btnDownload.setOnClickListener {
-            loadUrlFromInput()
+        btnSaveCurrent.setOnClickListener {
+            saveCurrentPage()
+        }
+
+        btnOpenEditor.setOnClickListener {
+            if (lastExtractedLinksJson != null) {
+                showLinksBottomSheet(lastExtractedLinksJson!!)
+            } else {
+                if (webView.url != null) {
+                    extractLinks()
+                } else {
+                    Toast.makeText(this, "Сначала загрузите страницу", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
 
         btnInspector.setOnClickListener {
