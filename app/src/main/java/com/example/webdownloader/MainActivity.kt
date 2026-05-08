@@ -52,6 +52,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var searchArchive: EditText
     private lateinit var fabSave: FloatingActionButton
     private lateinit var btnDownload: ImageButton
+    private lateinit var btnInspector: ImageButton
     private lateinit var fabBackToInspector: View
     private lateinit var highlightOverlay: View
 
@@ -95,6 +96,7 @@ class MainActivity : AppCompatActivity() {
         searchArchive = findViewById(R.id.searchArchive)
         fabSave = findViewById(R.id.fabSave)
         btnDownload = findViewById(R.id.btnDownload)
+        btnInspector = findViewById(R.id.btnInspector)
         fabBackToInspector = findViewById(R.id.fabBackToInspector)
         highlightOverlay = findViewById(R.id.highlightOverlay)
 
@@ -168,7 +170,7 @@ class MainActivity : AppCompatActivity() {
                     // Reset inspector state on new page load
                     isInspectorActive = false
                     fabBackToInspector.visibility = View.GONE
-                    btnDownload.clearColorFilter()
+                    btnInspector.clearColorFilter()
                 }
             }
 
@@ -246,24 +248,31 @@ class MainActivity : AppCompatActivity() {
             } else false
         }
 
-        btnDownload.setOnClickListener { 
+        btnDownload.setOnClickListener {
+            loadUrlFromInput()
+        }
+
+        btnInspector.setOnClickListener {
             if (isInspectorActive) {
                 isInspectorActive = false
                 webView.reload()
                 fabBackToInspector.visibility = View.GONE
-                btnDownload.clearColorFilter()
+                btnInspector.clearColorFilter()
             } else {
                 if (webView.url != null) {
                     isInspectorActive = true
                     extractLinks()
                     fabBackToInspector.visibility = View.VISIBLE
-                    btnDownload.setColorFilter(android.graphics.Color.parseColor("#BB86FC"))
+                    btnInspector.setColorFilter(android.graphics.Color.parseColor("#BB86FC"))
                 } else {
-                    loadUrlFromInput()
+                    Toast.makeText(this, "Сначала загрузите страницу", Toast.LENGTH_SHORT).show()
                 }
             }
         }
-        fabSave.setOnClickListener { saveCurrentPage() }
+        fabSave.setOnClickListener { 
+            fabSave.backgroundTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.GREEN)
+            saveCurrentPage() 
+        }
 
         fabBackToInspector.setOnClickListener {
             lastExtractedLinksJson?.let { json ->
