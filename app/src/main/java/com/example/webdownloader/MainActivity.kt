@@ -344,7 +344,7 @@ class MainActivity : AppCompatActivity() {
                 queueBatchDownload(selectedLinks)
             },
             onPreview = { link ->
-                webView.evaluateJavascript("highlightElement(${link.x}, ${link.y})", null)
+                webView.evaluateJavascript("highlightElement('${link.url}')", null)
             }
         )
         bottomSheet.show(supportFragmentManager, "LinksInspector")
