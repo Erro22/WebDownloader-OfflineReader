@@ -36,7 +36,7 @@ class BatchDownloader(private val context: Context) {
                 isProcessing = false
                 hiddenWebView?.destroy()
                 hiddenWebView = null
-                return
+                return@launch
             }
 
             isProcessing = true
