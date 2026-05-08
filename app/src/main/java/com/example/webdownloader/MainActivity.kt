@@ -319,16 +319,21 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun saveCurrentPage() {
-        Log.d("WebDownloader", "saveCurrentPage() called")
+        Log.d("WebDownloader", "STEP 1: saveCurrentPage() called")
         lifecycleScope.launch {
+            Log.d("WebDownloader", "STEP 2: launch started")
             progressBar.visibility = View.VISIBLE
             val archiveDir = File(filesDir, "archives")
+            Log.d("WebDownloader", "STEP 3: archiveDir = ${archiveDir.absolutePath}")
             if (!archiveDir.exists()) archiveDir.mkdirs()
             
             val fileName = "${UUID.randomUUID()}.mhtml"
             val outputFile = File(archiveDir, fileName)
+            Log.d("WebDownloader", "STEP 4: outputFile = ${outputFile.absolutePath}")
             
+            Log.d("WebDownloader", "STEP 5: calling archiver.archiveCurrentPage...")
             val result = archiver.archiveCurrentPage(webView, outputFile)
+            Log.d("WebDownloader", "STEP 6: Archive result received: $result")
             
             when (result) {
                 is WebArchiver.ArchiveResult.Success -> {
