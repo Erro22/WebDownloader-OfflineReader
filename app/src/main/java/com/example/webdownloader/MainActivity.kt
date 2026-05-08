@@ -53,6 +53,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var db: AppDatabase
     private lateinit var adapter: PagesAdapter
     private val archiver = WebArchiver()
+    private lateinit var batchDownloader: BatchDownloader
 
     private var currentMode = Mode.DOWNLOADER
 
@@ -98,9 +99,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupBatchDownloader() {
-        // Trigger background processing on start if any items are queued
-        val workRequest = OneTimeWorkRequestBuilder<BatchDownloadWorker>().build()
-        WorkManager.getInstance(this).enqueue(workRequest)
+        batchDownloader = BatchDownloader(this)
     }
 
     private fun setupWebView() {
@@ -148,7 +147,7 @@ class MainActivity : AppCompatActivity() {
                         val file = File(localPage.filePath)
                         if (file.exists()) {
                             return WebResourceResponse(
-                                "text/html",
+                                "message/rfc822",
                                 "UTF-8",
                                 file.inputStream()
                             )
@@ -273,7 +272,7 @@ class MainActivity : AppCompatActivity() {
             val archiveDir = File(filesDir, "archives")
             if (!archiveDir.exists()) archiveDir.mkdirs()
             
-            val fileName = "${UUID.randomUUID()}.mht"
+            val fileName = "${UUID.randomUUID()}.mhtml"
             val outputFile = File(archiveDir, fileName)
             
             val result = archiver.archiveCurrentPage(webView, outputFile)
@@ -358,35 +357,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun queueBatchDownload(selectedLinks: List<LinkItem>) {
-        val currentUrl = webView.url ?: ""
-        lifecycleScope.launch(Dispatchers.IO) {
-            // Find or create a parent entry for grouping if needed
-            val parent = db.pageDao().getPageByUrl(currentUrl)
-            val parentId = parent?.id
-
-            selectedLinks.take(50).forEach { link ->
-                val existing = db.pageDao().getPageByUrl(link.url)
-                if (existing == null) {
-                    val page = Page(
-                        title = link.title,
-                        url = link.url,
-                        filePath = "",
-                        status = "QUEUED",
-                        parentId = parentId,
-                        category = link.category,
-                        estimatedWeight = link.estimatedWeight,
-                        faviconUrl = "https://www.google.com/s2/favicons?domain=${link.domain}&sz=128"
-                    )
-                    db.pageDao().insertPage(page)
-                }
-            }
-            
-            withContext(Dispatchers.Main) {
-                Toast.makeText(this@MainActivity, "Добавлено в очередь: ${selectedLinks.size}", Toast.LENGTH_SHORT).show()
-                val workRequest = OneTimeWorkRequestBuilder<BatchDownloadWorker>().build()
-                WorkManager.getInstance(this@MainActivity).enqueue(workRequest)
-            }
-        }
+        batchDownloader.enqueue(selectedLinks)
+        Toast.makeText(this, "Добавлено в очередь: ${selectedLinks.size}", Toast.LENGTH_SHORT).show()
     }
 }
 

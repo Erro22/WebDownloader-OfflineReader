@@ -32,7 +32,7 @@ class LinksAdapter(
 
         fun bind(item: LinkItem) {
             title.text = item.title
-            domain.text = "${item.domain} • ${item.category}"
+            domain.text = "${item.displayUrl} • ${item.category}"
             
             // Highlight already saved items
             if (item.downloadStatus == "COMPLETED") {

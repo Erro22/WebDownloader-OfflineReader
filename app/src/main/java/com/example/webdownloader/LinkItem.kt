@@ -3,6 +3,7 @@ package com.example.webdownloader
 data class LinkItem(
     val title: String,
     val url: String,
+    val displayUrl: String = url,
     val x: Int,
     val y: Int,
     val width: Int,

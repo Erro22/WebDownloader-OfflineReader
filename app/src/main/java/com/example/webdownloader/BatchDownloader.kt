@@ -1,122 +1,120 @@
 package com.example.webdownloader
 
 import android.content.Context
+import android.os.BatteryManager
+import android.util.Log
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import com.example.webdownloader.db.AppDatabase
 import com.example.webdownloader.db.Page
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import android.content.Intent
-import android.content.IntentFilter
-import android.os.BatteryManager
+import kotlinx.coroutines.*
 import java.io.File
 import java.util.*
 
 class BatchDownloader(private val context: Context) {
-
     private val db = AppDatabase.getDatabase(context)
-    private val archiver = WebArchiver()
-    private val scope = CoroutineScope(Dispatchers.Main)
-    
+    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var isProcessing = false
-    private var hiddenWebView: WebView? = null
-    private val MAX_BATCH_SIZE = 50
-
-    fun startBatch() {
-        if (isProcessing) return
-        processNext()
-    }
-
-    private fun processNext() {
-        scope.launch {
-            val nextItem = withContext(Dispatchers.IO) {
-                db.pageDao().getAllPages().find { it.status == "QUEUED" }
-            }
-
-            if (nextItem == null || !isSystemReady()) {
-                isProcessing = false
-                hiddenWebView?.destroy()
-                hiddenWebView = null
-                return@launch
-            }
-
-            isProcessing = true
-            downloadPage(nextItem)
+    private val queue: Queue<LinkItem> = LinkedList()
+    
+    // Headless WebView for background processing
+    private val headlessWebView: WebView by lazy {
+        WebView(context).apply {
+            settings.javaScriptEnabled = true
+            settings.domStorageEnabled = true
+            settings.allowFileAccess = true
+            settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
         }
     }
 
-    private fun downloadPage(page: Page) {
-        if (hiddenWebView == null) {
-            hiddenWebView = WebView(context).apply {
-                settings.javaScriptEnabled = true
-                settings.domStorageEnabled = true
-            }
-        }
-
-        hiddenWebView?.webViewClient = object : WebViewClient() {
-            override fun onPageFinished(view: WebView?, url: String?) {
-                saveArchive(page)
-            }
-            
-            override fun onReceivedError(view: WebView?, request: android.webkit.WebResourceRequest?, error: android.webkit.WebResourceError?) {
-                updateStatus(page, "FAILED")
-                processNext()
-            }
-        }
-
-        hiddenWebView?.loadUrl(page.url)
-    }
-
-    private fun saveArchive(page: Page) {
-        scope.launch {
-            val archiveDir = File(context.filesDir, "archives")
-            if (!archiveDir.exists()) archiveDir.mkdirs()
-            
-            val fileName = "${UUID.randomUUID()}.mht"
-            val outputFile = File(archiveDir, fileName)
-            
-            val result = archiver.archiveCurrentPage(hiddenWebView!!, outputFile)
-            
-            if (result is WebArchiver.ArchiveResult.Success) {
-                val updatedPage = page.copy(
-                    title = result.title,
-                    filePath = outputFile.absolutePath,
-                    fileSize = outputFile.length(),
-                    status = "COMPLETED"
-                )
-                withContext(Dispatchers.IO) {
-                    db.pageDao().updatePage(updatedPage)
-                }
-            } else {
-                updateStatus(page, "FAILED")
-            }
-            
+    fun enqueue(links: List<LinkItem>) {
+        queue.addAll(links)
+        if (!isProcessing) {
             processNext()
         }
     }
 
-    private fun updateStatus(page: Page, status: String) {
-        scope.launch(Dispatchers.IO) {
-            db.pageDao().updatePage(page.copy(status = status))
+    private fun processNext() {
+        if (queue.isEmpty()) {
+            isProcessing = false
+            Log.d("BatchDownloader", "Queue empty, stopping.")
+            return
+        }
+
+        if (isSystemOverloaded()) {
+            Log.w("BatchDownloader", "System overloaded, waiting 30s...")
+            scope.launch {
+                delay(30000)
+                processNext()
+            }
+            return
+        }
+
+        isProcessing = true
+        val link = queue.poll() ?: return
+        downloadLink(link)
+    }
+
+    private fun downloadLink(link: LinkItem) {
+        Log.d("BatchDownloader", "Starting download: ${link.url}")
+        
+        headlessWebView.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView?, url: String?) {
+                scope.launch {
+                    saveArchive(link, view)
+                }
+            }
+
+            override fun onReceivedError(view: WebView?, request: android.webkit.WebResourceRequest?, error: android.webkit.WebResourceError?) {
+                Log.e("BatchDownloader", "Error loading ${link.url}: ${error?.description}")
+                processNext()
+            }
+        }
+
+        headlessWebView.loadUrl(link.url)
+    }
+
+    private suspend fun saveArchive(link: LinkItem, view: WebView?) {
+        if (view == null) return
+        
+        val archiveDir = File(context.filesDir, "archives")
+        if (!archiveDir.exists()) archiveDir.mkdirs()
+        
+        val fileName = "${UUID.randomUUID()}.mhtml"
+        val outputFile = File(archiveDir, fileName)
+        
+        // Use the actual page title if available, otherwise fallback to link title
+        val finalTitle = view.title ?: link.title
+
+        view.saveWebArchive(outputFile.absolutePath, false) { path ->
+            scope.launch(Dispatchers.IO) {
+                if (path != null) {
+                    val page = Page(
+                        title = finalTitle,
+                        url = link.url,
+                        filePath = path,
+                        fileSize = outputFile.length(),
+                        faviconUrl = "https://www.google.com/s2/favicons?domain=${link.url}&sz=128",
+                        category = link.category
+                    )
+                    db.pageDao().insertPage(page)
+                    Log.d("BatchDownloader", "Successfully saved: $finalTitle")
+                } else {
+                    Log.e("BatchDownloader", "Failed to save archive for ${link.url}")
+                }
+                
+                withContext(Dispatchers.Main) {
+                    processNext()
+                }
+            }
         }
     }
 
-    private fun isSystemReady(): Boolean {
-        val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
-        val batteryStatus = context.registerReceiver(null, filter)
-        val level = batteryStatus?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
-        val scale = batteryStatus?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
-        val batteryPct = level * 100 / scale.toFloat()
-
-        if (batteryPct < 15) return false
-        
-        // Temperature check (simplified)
-        val temp = batteryStatus?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1) ?: -1
-        if (temp > 450) return false // 45°C
-        
-        return true
+    private fun isSystemOverloaded(): Boolean {
+        val bm = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+        val level = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+        val temp = 30 // Placeholder for temperature if needed
+        return level < 10 || temp > 50
     }
 }

@@ -43,6 +43,7 @@ class LinksBottomSheet : BottomSheetDialogFragment() {
             links.add(LinkItem(
                 title = obj.getString("title"),
                 url = obj.getString("url"),
+                displayUrl = obj.optString("displayUrl", obj.getString("url")),
                 x = obj.getInt("x"),
                 y = obj.getInt("y"),
                 width = obj.getInt("width"),
@@ -71,8 +72,7 @@ class LinksBottomSheet : BottomSheetDialogFragment() {
         adapter = LinksAdapter(
             onLinkClick = { onPreviewLink(it) },
             onSelectionChanged = {
-                val selectedCount = links.count { it.isSelected }
-                tvCount.text = "Выбрано: $selectedCount"
+                updateCounter(tvCount, btnDownload)
             }
         )
 
@@ -84,14 +84,14 @@ class LinksBottomSheet : BottomSheetDialogFragment() {
             val currentList = adapter.currentList
             currentList.forEach { it.isSelected = isChecked }
             adapter.notifyDataSetChanged()
-            updateCounter(tvCount)
+            updateCounter(tvCount, btnDownload)
         }
 
         btnInvert.setOnClickListener {
             val currentList = adapter.currentList
             currentList.forEach { it.isSelected = !it.isSelected }
             adapter.notifyDataSetChanged()
-            updateCounter(tvCount)
+            updateCounter(tvCount, btnDownload)
         }
 
         tabCategories.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
@@ -122,9 +122,11 @@ class LinksBottomSheet : BottomSheetDialogFragment() {
     private fun filterLinks(query: String, tabPosition: Int) {
         val q = query.lowercase()
         val category = when(tabPosition) {
-            1 -> "INTERNAL"
-            2 -> "EXTERNAL"
-            3 -> "MEDIA"
+            1 -> "СТАТЬИ"
+            2 -> "ВНУТРЕННИЕ"
+            3 -> "МЕДИА"
+            4 -> "ВНЕШНИЕ"
+            5 -> "PROCHEЕ"
             else -> null
         }
         
@@ -135,9 +137,10 @@ class LinksBottomSheet : BottomSheetDialogFragment() {
         adapter.submitList(filtered)
     }
 
-    private fun updateCounter(tvCount: TextView) {
+    private fun updateCounter(tvCount: TextView, btnDownload: MaterialButton) {
         val selectedCount = links.count { it.isSelected }
         tvCount.text = "Выбрано: $selectedCount"
+        btnDownload.text = if (selectedCount > 0) "Скачать выбранное ($selectedCount)" else "Скачать выбранное"
     }
 
     fun setListeners(onDownload: (List<LinkItem>) -> Unit, onPreview: (LinkItem) -> Unit) {
