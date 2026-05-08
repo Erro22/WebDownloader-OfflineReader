@@ -1,0 +1,25 @@
+{
+  "total_count": 17,
+  "artifacts": [
+    {
+      "id": 6879509937,
+      "node_id": "MDg6QXJ0aWZhY3Q2ODc5NTA5OTM3",
+      "name": "app-debug",
+      "size_in_bytes": 6206653,
+      "url": "https://api.github.com/repos/Erro22/WebDownloader-OfflineReader/actions/artifacts/6879509937",
+      "archive_download_url": "https://api.github.com/repos/Erro22/WebDownloader-OfflineReader/actions/artifacts/6879509937/zip",
+      "expired": false,
+      "digest": "sha256:5556f8b65b70e7601615bb71dbeadad539f3cd7f3c5f96c3ebd438a5aefada8d",
+      "created_at": "2026-05-08T12:52:07Z",
+      "updated_at": "2026-05-08T12:52:07Z",
+      "expires_at": "2026-08-06T12:50:05Z",
+      "workflow_run": {
+        "id": 25556487632,
+        "repository_id": 1232781736,
+        "head_repository_id": 1232781736,
+        "head_branch": "main",
+        "head_sha": "08989266c03a0a50daec0e5dcd7130883de78c11"
+      }
+    }
+  ]
+}

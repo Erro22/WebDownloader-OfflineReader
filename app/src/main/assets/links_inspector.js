@@ -54,12 +54,9 @@
 })();
 
 function highlightElement(targetUrl) {
-    console.log("Antigravity: Highlighting with Red Marker: " + targetUrl);
+    console.log("Antigravity: Highlighting with Native Overlay: " + targetUrl);
     
-    // Safely escape URL for CSS selector
-    const selector = 'a[href="' + targetUrl.replace(/"/g, '\\"') + '"]';
-    const allLinks = Array.from(document.querySelectorAll('a'));
-    const candidates = allLinks.filter(a => a.href === targetUrl);
+    const candidates = Array.from(document.querySelectorAll('a')).filter(a => a.href === targetUrl);
     
     if (candidates.length === 0) {
         console.error("Antigravity: Link not found: " + targetUrl);
@@ -71,56 +68,40 @@ function highlightElement(targetUrl) {
         return rect.width > 0 && rect.height > 0;
     }) || candidates[0];
 
-    // --- STICKY HEADER COMPENSATION ---
-    const rect = el.getBoundingClientRect();
+    // --- SCROLL INTO VIEW ---
+    const rectBefore = el.getBoundingClientRect();
     const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-    const targetY = rect.top + scrollTop - (window.innerHeight / 2) + (rect.height / 2);
+    const targetY = rectBefore.top + scrollTop - (window.innerHeight / 2) + (rectBefore.height / 2);
     
-    // Scroll to center but with a safety offset for sticky headers
     window.scrollTo({
         top: targetY,
         behavior: 'smooth'
     });
     
-    // Additional micro-scroll if target is too high (under potential header)
+    // Wait for scroll to settle, then get viewport coordinates
     setTimeout(() => {
-        const newRect = el.getBoundingClientRect();
-        if (newRect.top < 100) { // If it's in the top 100px, it might be under a header
-            window.scrollBy({ top: -120, behavior: 'smooth' });
+        const rectAfter = el.getBoundingClientRect();
+        
+        // Final compensation check for sticky headers
+        if (rectAfter.top < 80) {
+            window.scrollBy({ top: -100, behavior: 'smooth' });
+            setTimeout(() => {
+                const finalRect = el.getBoundingClientRect();
+                sendToAndroid(finalRect);
+            }, 300);
+        } else {
+            sendToAndroid(rectAfter);
         }
-    }, 500);
+    }, 600);
 
-    // --- RED MARKER STYLE ---
-    const styleId = 'antigravity-red-marker-style';
-    if (!document.getElementById(styleId)) {
-        const style = document.createElement('style');
-        style.id = styleId;
-        style.innerHTML = `
-            @keyframes red-pulse-v3 {
-                0% { box-shadow: 0 0 10px rgba(255, 0, 0, 0.5); }
-                50% { box-shadow: 0 0 25px rgba(255, 0, 0, 0.8), 0 0 40px rgba(255, 0, 0, 0.4); }
-                100% { box-shadow: 0 0 10px rgba(255, 0, 0, 0.5); }
-            }
-            .antigravity-red-marker {
-                background-color: rgba(255, 0, 0, 0.6) !important;
-                box-shadow: 0 0 15px 5px rgba(255, 0, 0, 0.4) !important;
-                border-radius: 6px !important;
-                transition: all 0.3s ease !important;
-                animation: red-pulse-v3 1s infinite !important;
-                z-index: 2147483647 !important;
-                position: relative !important;
-                color: white !important;
-                padding: 2px 4px !important;
-                margin: -2px -4px !important;
-            }
-        `;
-        document.head.appendChild(style);
+    function sendToAndroid(rect) {
+        if (window.AndroidInterface && window.AndroidInterface.showNativeHighlight) {
+            window.AndroidInterface.showNativeHighlight(
+                rect.left, 
+                rect.top, 
+                rect.width, 
+                rect.height
+            );
+        }
     }
-
-    el.classList.add('antigravity-red-marker');
-    
-    // Remove after 10 seconds
-    setTimeout(() => {
-        el.classList.remove('antigravity-red-marker');
-    }, 10000);
 }

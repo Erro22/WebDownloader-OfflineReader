@@ -50,6 +50,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var fabSave: FloatingActionButton
     private lateinit var btnDownload: ImageButton
     private lateinit var fabBackToInspector: View
+    private lateinit var highlightOverlay: View
 
     private lateinit var db: AppDatabase
     private lateinit var adapter: PagesAdapter
@@ -87,6 +88,7 @@ class MainActivity : AppCompatActivity() {
         fabSave = findViewById(R.id.fabSave)
         btnDownload = findViewById(R.id.btnDownload)
         fabBackToInspector = findViewById(R.id.fabBackToInspector)
+        highlightOverlay = findViewById(R.id.highlightOverlay)
 
         setSupportActionBar(toolbar)
     }
@@ -123,6 +125,13 @@ class MainActivity : AppCompatActivity() {
             fun onLinksExtracted(json: String) {
                 runOnUiThread {
                     showLinksInspector(json)
+                }
+            }
+
+            @android.webkit.JavascriptInterface
+            fun showNativeHighlight(x: Float, y: Float, width: Float, height: Float) {
+                runOnUiThread {
+                    positionAndShowHighlight(x, y, width, height)
                 }
             }
         }, "AndroidInterface")
@@ -365,6 +374,39 @@ class MainActivity : AppCompatActivity() {
     private fun queueBatchDownload(selectedLinks: List<LinkItem>) {
         batchDownloader.enqueue(selectedLinks)
         Toast.makeText(this, "Добавлено в очередь: ${selectedLinks.size}", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun positionAndShowHighlight(x: Float, y: Float, w: Float, h: Float) {
+        val density = resources.displayMetrics.density
+        // Convert CSS pixels to physical pixels
+        val pxX = (x * density).toInt()
+        val pxY = (y * density).toInt()
+        val pxW = (w * density).toInt()
+        val pxH = (h * density).toInt()
+
+        val params = highlightOverlay.layoutParams as RelativeLayout.LayoutParams
+        params.leftMargin = pxX
+        params.topMargin = pxY
+        params.width = pxW
+        params.height = pxH
+        highlightOverlay.layoutParams = params
+        
+        highlightOverlay.visibility = View.VISIBLE
+        highlightOverlay.alpha = 0f
+        highlightOverlay.animate()
+            .alpha(1f)
+            .setDuration(300)
+            .withEndAction {
+                highlightOverlay.animate()
+                    .alpha(0f)
+                    .setStartDelay(3000)
+                    .setDuration(500)
+                    .withEndAction {
+                        highlightOverlay.visibility = View.GONE
+                    }
+                    .start()
+            }
+            .start()
     }
 }
 
