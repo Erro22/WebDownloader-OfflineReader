@@ -1,6 +1,7 @@
 package com.example.webdownloader
 
 import android.os.Bundle
+import android.util.Log
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.KeyEvent
@@ -318,6 +319,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun saveCurrentPage() {
+        Log.d("WebDownloader", "saveCurrentPage() called")
         lifecycleScope.launch {
             progressBar.visibility = View.VISIBLE
             val archiveDir = File(filesDir, "archives")
@@ -408,6 +410,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun extractLinks() {
+        Log.d("WebDownloader", "extractLinks() called")
         Toast.makeText(this, "Анализ страницы...", Toast.LENGTH_SHORT).show()
         val script = assets.open("links_inspector.js").bufferedReader().use { it.readText() }
         webView.evaluateJavascript(script, null)
