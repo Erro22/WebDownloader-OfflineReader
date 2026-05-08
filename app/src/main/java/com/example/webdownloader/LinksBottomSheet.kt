@@ -23,12 +23,14 @@ class LinksBottomSheet : BottomSheetDialogFragment() {
     private lateinit var adapter: LinksAdapter
     private var onDownloadSelected: (List<LinkItem>) -> Unit = {}
     private var onPreviewLink: (LinkItem) -> Unit = {}
+    private var onSelectionChanged: (String, Boolean) -> Unit = { _, _ -> }
 
     companion object {
-        fun newInstance(linksJson: String): LinksBottomSheet {
+        fun newInstance(linksJson: String, selectedUrls: List<String>): LinksBottomSheet {
             val fragment = LinksBottomSheet()
             val args = Bundle()
             args.putString("links_json", linksJson)
+            args.putStringArrayList("selected_urls", ArrayList(selectedUrls))
             fragment.arguments = args
             return fragment
         }
@@ -37,19 +39,22 @@ class LinksBottomSheet : BottomSheetDialogFragment() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val json = arguments?.getString("links_json") ?: "[]"
+        val selected = arguments?.getStringArrayList("selected_urls") ?: emptyList<String>()
         val array = JSONArray(json)
         for (i in 0 until array.length()) {
             val obj = array.getJSONObject(i)
+            val url = obj.getString("url")
             links.add(LinkItem(
                 title = obj.getString("title"),
-                url = obj.getString("url"),
-                displayUrl = obj.optString("displayUrl", obj.getString("url")),
+                url = url,
+                displayUrl = obj.optString("displayUrl", url),
                 x = obj.getInt("x"),
                 y = obj.getInt("y"),
                 width = obj.getInt("width"),
                 height = obj.getInt("height"),
                 category = obj.optString("category", "EXTERNAL"),
-                estimatedWeight = obj.optLong("estimatedWeight", 0)
+                estimatedWeight = obj.optLong("estimatedWeight", 0),
+                isSelected = selected.contains(url)
             ))
         }
     }
@@ -71,7 +76,8 @@ class LinksBottomSheet : BottomSheetDialogFragment() {
 
         adapter = LinksAdapter(
             onLinkClick = { onPreviewLink(it) },
-            onSelectionChanged = {
+            onSelectionChanged = { item ->
+                onSelectionChanged(item.url, item.isSelected)
                 updateCounter(tvCount, btnDownload)
             }
         )
@@ -143,8 +149,13 @@ class LinksBottomSheet : BottomSheetDialogFragment() {
         btnDownload.text = if (selectedCount > 0) "Скачать выбранное ($selectedCount)" else "Скачать выбранное"
     }
 
-    fun setListeners(onDownload: (List<LinkItem>) -> Unit, onPreview: (LinkItem) -> Unit) {
+    fun setListeners(
+        onDownload: (List<LinkItem>) -> Unit, 
+        onPreview: (LinkItem) -> Unit,
+        onSelectionChanged: (String, Boolean) -> Unit
+    ) {
         this.onDownloadSelected = onDownload
         this.onPreviewLink = onPreview
+        this.onSelectionChanged = onSelectionChanged
     }
 }

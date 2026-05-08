@@ -8,7 +8,9 @@ import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.view.ViewGroup
 import android.widget.*
+import com.google.android.material.snackbar.Snackbar
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.core.view.GravityCompat
@@ -59,6 +61,8 @@ class MainActivity : AppCompatActivity() {
 
     private var currentMode = Mode.DOWNLOADER
     private var lastExtractedLinksJson: String? = null
+    private val selectedUrls = mutableSetOf<String>()
+    private val expandedGroups = mutableSetOf<String>()
 
     enum class Mode { DOWNLOADER, LIBRARY, READING }
 
@@ -129,6 +133,15 @@ class MainActivity : AppCompatActivity() {
             }
 
             @android.webkit.JavascriptInterface
+            fun onLinkToggledOnPage(url: String, isSelected: Boolean) {
+                runOnUiThread {
+                    if (isSelected) selectedUrls.add(url) else selectedUrls.remove(url)
+                    // If BottomSheet is visible, we should ideally update it, 
+                    // but for now we'll just keep the set in sync.
+                }
+            }
+
+            @android.webkit.JavascriptInterface
             fun showNativeHighlight(x: Float, y: Float, width: Float, height: Float) {
                 runOnUiThread {
                     positionAndShowHighlight(x, y, width, height)
@@ -166,9 +179,17 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupRecyclerView() {
         adapter = PagesAdapter(
-            pages = emptyList(),
-            onItemClick = { openPage(it) },
-            onItemLongClick = { showDeleteConfirmation(it) }
+            emptyList(),
+            onItemClick = { page -> openPage(page) },
+            onItemLongClick = { page -> showDeleteConfirmation(page) },
+            onGroupToggle = { groupName ->
+                if (expandedGroups.contains(groupName)) {
+                    expandedGroups.remove(groupName)
+                } else {
+                    expandedGroups.add(groupName)
+                }
+                loadLibraryPages()
+            }
         )
         rvSavedPages.layoutManager = LinearLayoutManager(this)
         rvSavedPages.adapter = adapter
@@ -317,9 +338,29 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadSavedPages() {
-        lifecycleScope.launch {
-            val pages = db.pageDao().getAllPages()
-            adapter.updatePages(pages)
+        lifecycleScope.launch(Dispatchers.IO) {
+            val db = AppDatabase.getDatabase(this@MainActivity)
+            val groups = db.pageDao().getAllGroupNames()
+            val libraryItems = mutableListOf<LibraryItem>()
+
+            // Add grouped items
+            groups.forEach { groupName ->
+                val pagesInGroup = db.pageDao().getPagesByGroup(groupName)
+                val isExpanded = expandedGroups.contains(groupName)
+                libraryItems.add(LibraryItem.GroupHeader(groupName, pagesInGroup.size, isExpanded))
+                if (isExpanded) {
+                    pagesInGroup.forEach { libraryItems.add(LibraryItem.PageItem(it)) }
+                }
+            }
+
+            // Add ungrouped items
+            val ungrouped = db.pageDao().getUngroupedPages()
+            ungrouped.forEach { libraryItems.add(LibraryItem.PageItem(it)) }
+
+            withContext(Dispatchers.Main) {
+                adapter.updateItems(libraryItems)
+                // Update empty state if needed
+            }
         }
     }
 
@@ -355,25 +396,55 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showLinksInspector(json: String) {
+        if (selectedUrls.isEmpty()) {
+            com.google.android.material.snackbar.Snackbar.make(webView, "Выберите ссылки на странице для скачивания", com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show()
+        }
         lastExtractedLinksJson = json
-        val bottomSheet = LinksBottomSheet.newInstance(json)
+        val bottomSheet = LinksBottomSheet.newInstance(json, selectedUrls.toList())
         bottomSheet.setListeners(
             onDownload = { selectedLinks ->
-                queueBatchDownload(selectedLinks)
+                showGroupNameDialog(selectedLinks)
             },
             onPreview = { link ->
                 val escapedUrl = link.url.replace("'", "\\'")
                 webView.evaluateJavascript("highlightElement('$escapedUrl')", null)
                 bottomSheet.dismiss()
                 fabBackToInspector.visibility = View.VISIBLE
+            },
+            onSelectionChanged = { url, isSelected ->
+                if (isSelected) selectedUrls.add(url) else selectedUrls.remove(url)
+                val escapedUrl = url.replace("'", "\\'")
+                webView.evaluateJavascript("updateLinkSelection('$escapedUrl', $isSelected)", null)
             }
         )
         bottomSheet.show(supportFragmentManager, "LinksInspector")
     }
 
-    private fun queueBatchDownload(selectedLinks: List<LinkItem>) {
-        batchDownloader.enqueue(selectedLinks)
+    private fun queueBatchDownload(selectedLinks: List<LinkItem>, groupName: String? = null) {
+        batchDownloader.enqueue(selectedLinks, groupName)
         Toast.makeText(this, "Добавлено в очередь: ${selectedLinks.size}", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun showGroupNameDialog(selectedLinks: List<LinkItem>) {
+        val input = EditText(this)
+        input.hint = "Напр. Материалы по Kotlin"
+        val container = FrameLayout(this)
+        val params = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        params.setMargins(48, 24, 48, 24)
+        input.layoutParams = params
+        container.addView(input)
+
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Название группы")
+            .setMessage("Введите название для этой группы страниц:")
+            .setView(container)
+            .setPositiveButton("Скачать") { _, _ ->
+                val groupName = input.text.toString().takeIf { it.isNotBlank() }
+                queueBatchDownload(selectedLinks, groupName)
+                switchMode(Mode.LIBRARY)
+            }
+            .setNegativeButton("Отмена", null)
+            .show()
     }
 
     private fun positionAndShowHighlight(x: Float, y: Float, w: Float, h: Float) {

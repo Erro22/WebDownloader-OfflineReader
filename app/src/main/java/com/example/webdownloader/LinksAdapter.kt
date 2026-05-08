@@ -12,7 +12,7 @@ import androidx.recyclerview.widget.RecyclerView
 
 class LinksAdapter(
     private val onLinkClick: (LinkItem) -> Unit,
-    private val onSelectionChanged: () -> Unit
+    private val onSelectionChanged: (LinkItem) -> Unit
 ) : ListAdapter<LinkItem, LinksAdapter.LinkViewHolder>(LinkDiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): LinkViewHolder {
@@ -46,7 +46,7 @@ class LinksAdapter(
             
             checkBox.setOnCheckedChangeListener { _, isChecked ->
                 item.isSelected = isChecked
-                onSelectionChanged()
+                onSelectionChanged(item)
             }
 
             itemView.setOnClickListener {
