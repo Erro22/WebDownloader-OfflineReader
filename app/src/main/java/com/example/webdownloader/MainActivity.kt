@@ -137,23 +137,15 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
+            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                // Return false to allow WebView to handle the URL loading normally.
+                // We only override if we need special handling (e.g. custom schemes), 
+                // but for articles, the Library already handles opening local files.
+                return false
+            }
+
             override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
-                val url = request?.url?.toString() ?: return null
-                
-                // Only intercept actual page loads (not assets for now to avoid complexity)
-                if (request.isForMainFrame) {
-                    val localPage = runBlocking { db.pageDao().getPageByUrl(url) }
-                    if (localPage != null && localPage.filePath.isNotEmpty()) {
-                        val file = File(localPage.filePath)
-                        if (file.exists()) {
-                            return WebResourceResponse(
-                                "message/rfc822",
-                                "UTF-8",
-                                file.inputStream()
-                            )
-                        }
-                    }
-                }
+                // Remove interception for now to avoid deadlocks and rendering issues
                 return super.shouldInterceptRequest(view, request)
             }
         }
