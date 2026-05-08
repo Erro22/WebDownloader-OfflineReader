@@ -63,6 +63,7 @@ class MainActivity : AppCompatActivity() {
     private var lastExtractedLinksJson: String? = null
     private val selectedUrls = mutableSetOf<String>()
     private val expandedGroups = mutableSetOf<String>()
+    private var isInspectorActive = false
 
     enum class Mode { DOWNLOADER, LIBRARY, READING }
 
@@ -160,6 +161,11 @@ class MainActivity : AppCompatActivity() {
                     urlInput.setText(url)
                     emptyPreviewState.visibility = View.GONE
                     fabSave.visibility = View.VISIBLE
+                    
+                    // Reset inspector state on new page load
+                    isInspectorActive = false
+                    fabBackToInspector.visibility = View.GONE
+                    btnDownload.clearColorFilter()
                 }
             }
 
@@ -237,12 +243,24 @@ class MainActivity : AppCompatActivity() {
             } else false
         }
 
-        btnDownload.setOnClickListener { loadUrlFromInput() }
-        fabSave.setOnClickListener { saveCurrentPage() }
-        fabSave.setOnLongClickListener {
-            extractLinks()
-            true
+        btnDownload.setOnClickListener { 
+            if (isInspectorActive) {
+                isInspectorActive = false
+                webView.reload()
+                fabBackToInspector.visibility = View.GONE
+                btnDownload.clearColorFilter()
+            } else {
+                if (webView.url != null) {
+                    isInspectorActive = true
+                    extractLinks()
+                    fabBackToInspector.visibility = View.VISIBLE
+                    btnDownload.setColorFilter(android.graphics.Color.parseColor("#BB86FC"))
+                } else {
+                    loadUrlFromInput()
+                }
+            }
         }
+        fabSave.setOnClickListener { saveCurrentPage() }
 
         fabBackToInspector.setOnClickListener {
             lastExtractedLinksJson?.let { json ->
@@ -478,6 +496,21 @@ class MainActivity : AppCompatActivity() {
                     .start()
             }
             .start()
+    }
+
+    override fun onBackPressed() {
+        if (isInspectorActive) {
+            isInspectorActive = false
+            webView.reload()
+            fabBackToInspector.visibility = View.GONE
+            btnDownload.clearColorFilter()
+        } else if (webView.canGoBack() && currentMode == Mode.DOWNLOADER) {
+            webView.goBack()
+        } else if (currentMode != Mode.DOWNLOADER) {
+            switchMode(Mode.DOWNLOADER)
+        } else {
+            super.onBackPressed()
+        }
     }
 }
 
