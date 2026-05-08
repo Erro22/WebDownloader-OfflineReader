@@ -106,6 +106,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupWebView() {
+        @Suppress("DEPRECATION")
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
