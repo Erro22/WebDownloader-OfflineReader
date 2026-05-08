@@ -188,7 +188,7 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     expandedGroups.add(groupName)
                 }
-                loadLibraryPages()
+                loadSavedPages()
             }
         )
         rvSavedPages.layoutManager = LinearLayoutManager(this)
@@ -367,7 +367,7 @@ class MainActivity : AppCompatActivity() {
     private fun filterPages(query: String) {
         lifecycleScope.launch {
             val pages = if (query.isEmpty()) db.pageDao().getAllPages() else db.pageDao().searchPages(query)
-            adapter.updatePages(pages)
+            adapter.updateItems(pages.map { LibraryItem.PageItem(it) })
         }
     }
 
