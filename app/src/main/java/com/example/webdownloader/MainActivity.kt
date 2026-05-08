@@ -21,7 +21,11 @@ import com.example.webdownloader.db.AppDatabase
 import com.example.webdownloader.db.Page
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.navigation.NavigationView
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.*
 
@@ -87,6 +91,13 @@ class MainActivity : AppCompatActivity() {
         setupRecyclerView()
         setupDrawer()
         setupListeners()
+        setupBatchDownloader()
+    }
+
+    private fun setupBatchDownloader() {
+        // Trigger background processing on start if any items are queued
+        val workRequest = OneTimeWorkRequestBuilder<BatchDownloadWorker>().build()
+        WorkManager.getInstance(this).enqueue(workRequest)
     }
 
     private fun setupWebView() {
@@ -95,6 +106,15 @@ class MainActivity : AppCompatActivity() {
         webView.settings.allowFileAccess = true
         webView.settings.allowContentAccess = true
         webView.isNestedScrollingEnabled = true
+        
+        webView.addJavascriptInterface(object {
+            @android.webkit.JavascriptInterface
+            fun onLinksExtracted(json: String) {
+                runOnUiThread {
+                    showLinksInspector(json)
+                }
+            }
+        }, "AndroidInterface")
         
         webView.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
@@ -166,6 +186,10 @@ class MainActivity : AppCompatActivity() {
 
         btnDownload.setOnClickListener { loadUrlFromInput() }
         fabSave.setOnClickListener { saveCurrentPage() }
+        fabSave.setOnLongClickListener {
+            extractLinks()
+            true
+        }
 
         searchArchive.addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) { filterPages(s.toString()) }
@@ -283,6 +307,48 @@ class MainActivity : AppCompatActivity() {
             .setPositiveButton("Удалить") { _, _ -> deletePage(page) }
             .setNegativeButton("Отмена", null)
             .show()
+    }
+
+    private fun extractLinks() {
+        val script = assets.open("links_inspector.js").bufferedReader().use { it.readText() }
+        webView.evaluateJavascript(script, null)
+    }
+
+    private fun showLinksInspector(json: String) {
+        val bottomSheet = LinksBottomSheet.newInstance(json)
+        bottomSheet.setListeners(
+            onDownload = { selectedLinks ->
+                queueBatchDownload(selectedLinks)
+            },
+            onPreview = { link ->
+                webView.evaluateJavascript("highlightElement(${link.x}, ${link.y})", null)
+            }
+        )
+        bottomSheet.show(supportFragmentManager, "LinksInspector")
+    }
+
+    private fun queueBatchDownload(selectedLinks: List<LinkItem>) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            selectedLinks.forEach { link ->
+                val existing = db.pageDao().getPageByUrl(link.url)
+                if (existing == null) {
+                    val page = Page(
+                        title = link.title,
+                        url = link.url,
+                        filePath = "",
+                        status = "QUEUED",
+                        faviconUrl = "https://www.google.com/s2/favicons?domain=${link.domain}&sz=128"
+                    )
+                    db.pageDao().insertPage(page)
+                }
+            }
+            
+            withContext(Dispatchers.Main) {
+                Toast.makeText(this@MainActivity, "Добавлено в очередь: ${selectedLinks.size}", Toast.LENGTH_SHORT).show()
+                val workRequest = OneTimeWorkRequestBuilder<BatchDownloadWorker>().build()
+                WorkManager.getInstance(this@MainActivity).enqueue(workRequest)
+            }
+        }
     }
 }
 

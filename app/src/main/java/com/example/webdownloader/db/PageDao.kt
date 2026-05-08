@@ -13,6 +13,9 @@ interface PageDao {
     @Delete
     suspend fun deletePage(page: Page)
 
+    @Update
+    suspend fun updatePage(page: Page)
+
     @Query("SELECT * FROM pages WHERE url = :url LIMIT 1")
     suspend fun getPageByUrl(url: String): Page?
 

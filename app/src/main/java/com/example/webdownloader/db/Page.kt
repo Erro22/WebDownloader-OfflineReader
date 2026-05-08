@@ -13,5 +13,6 @@ data class Page(
     val iconPath: String? = null,
     val faviconUrl: String? = null,
     val fileSize: Long = 0,
-    val tags: String? = null
+    val tags: String? = null,
+    val status: String = "COMPLETED"
 )
