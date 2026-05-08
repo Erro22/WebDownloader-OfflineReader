@@ -1,3 +1,8 @@
 <resources>
-    <style name="Theme.WebDownloader" parent="Theme.MaterialComponents.DayNight.DarkActionBar" />
+    <style name="Theme.WebDownloader" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Primary brand color. -->
+        <item name="colorPrimary">#6750A4</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorContainer">#F3EDF7</item>
+    </style>
 </resources>
